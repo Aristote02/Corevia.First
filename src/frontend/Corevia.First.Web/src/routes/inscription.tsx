@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
-import { isCustomAuthEnabled } from "@/lib/auth-config";
+import { isEmailPasswordAuthEnabled } from "@/lib/auth-config";
 import { AuthShell, authInputCls } from "@/components/site/AuthShell";
 import { PasswordInput } from "@/components/site/PasswordInput";
 
@@ -26,6 +26,7 @@ function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [emailConfirmationSent, setEmailConfirmationSent] = useState(false);
 
   const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
@@ -68,6 +69,9 @@ function SignupPage() {
       setError(res.error);
       return;
     }
+    if (res.needsEmailConfirmation) {
+      setEmailConfirmationSent(true);
+    }
     setSuccess(true);
   };
 
@@ -82,7 +86,7 @@ function SignupPage() {
     }
   };
 
-  const showEmailForm = isCustomAuthEnabled();
+  const showEmailForm = isEmailPasswordAuthEnabled();
   const showGoogle = supabaseReady;
 
   return (
@@ -111,9 +115,13 @@ function SignupPage() {
             {fr ? "Compte créé !" : "Account created!"}
           </h2>
           <p className="mt-2 text-muted-foreground">
-            {fr
-              ? "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter."
-              : "Your account was created successfully. You can now sign in."}
+            {emailConfirmationSent
+              ? fr
+                ? "Un e-mail de confirmation vous a été envoyé. Cliquez sur le lien pour activer votre compte, puis connectez-vous."
+                : "A confirmation email has been sent. Click the link to activate your account, then sign in."
+              : fr
+                ? "Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter."
+                : "Your account was created successfully. You can now sign in."}
           </p>
           <Link
             to="/connexion"

@@ -57,6 +57,29 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+export async function signInWithEmailSupabase(email: string, password: string) {
+  const supabase = await getSupabaseClient();
+  if (!supabase) throw new Error("Supabase auth is not configured.");
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function signUpWithEmailSupabase(
+  email: string,
+  password: string,
+  fullName: string,
+) {
+  const supabase = await getSupabaseClient();
+  if (!supabase) throw new Error("Supabase auth is not configured.");
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { full_name: fullName.trim() } },
+  });
+  if (error) throw error;
+  return data.session;
+}
+
 export async function signInWithGoogleRedirect(redirectTo?: string) {
   const supabase = await getSupabaseClient();
   if (!supabase) throw new Error("Supabase auth is not configured.");

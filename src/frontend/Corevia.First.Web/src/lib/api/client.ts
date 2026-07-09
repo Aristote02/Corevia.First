@@ -184,6 +184,8 @@ export interface AuthResult {
   user: AuthUser | null;
   profile: UserProfile | null;
   error: string | null;
+  /** Supabase sign-up when email confirmation is required before a session exists. */
+  needsEmailConfirmation?: boolean;
 }
 
 export async function getCurrentProfile(): Promise<UserProfile | null> {

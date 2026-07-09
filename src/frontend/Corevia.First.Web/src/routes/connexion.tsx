@@ -3,7 +3,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2, Info } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
-import { isCustomAuthEnabled } from "@/lib/auth-config";
+import { isEmailPasswordAuthEnabled } from "@/lib/auth-config";
 import { AuthShell, authInputCls } from "@/components/site/AuthShell";
 import { PasswordInput } from "@/components/site/PasswordInput";
 
@@ -59,7 +59,7 @@ function LoginPage() {
     }
   };
 
-  const showEmailForm = isCustomAuthEnabled();
+  const showEmailForm = isEmailPasswordAuthEnabled();
   const showGoogle = supabaseReady;
 
   return (

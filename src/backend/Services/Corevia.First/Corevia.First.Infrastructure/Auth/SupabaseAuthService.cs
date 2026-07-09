@@ -92,7 +92,7 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
         if (string.IsNullOrWhiteSpace(sub) || !Guid.TryParse(sub, out var supabaseId))
             return null;
 
-        var email = (principal.FindFirstValue("email") ?? string.Empty).Trim().ToLowerInvariant();
+        var email = ExtractEmail(principal);
         if (string.IsNullOrEmpty(email))
             return null;
 
@@ -128,6 +128,37 @@ public sealed class SupabaseAuthService : ISupabaseAuthService
 
         await _users.SaveChangesAsync(cancellationToken);
         return user.ToProfileDto();
+    }
+
+    private static string? ExtractEmail(ClaimsPrincipal principal)
+    {
+        var email = principal.FindFirstValue("email");
+        if (!string.IsNullOrWhiteSpace(email))
+            return email.Trim().ToLowerInvariant();
+
+        if (principal.Identity is ClaimsIdentity identity &&
+            identity.BootstrapContext is JwtSecurityToken jwt)
+        {
+            if (jwt.Payload.TryGetValue("user_metadata", out var metadataObj))
+            {
+                try
+                {
+                    var json = metadataObj is JsonElement element ? element : JsonSerializer.SerializeToElement(metadataObj);
+                    if (json.TryGetProperty("email", out var emailProp))
+                    {
+                        var fromMeta = emailProp.GetString();
+                        if (!string.IsNullOrWhiteSpace(fromMeta))
+                            return fromMeta.Trim().ToLowerInvariant();
+                    }
+                }
+                catch
+                {
+                    // ignore malformed metadata
+                }
+            }
+        }
+
+        return null;
     }
 
     private static string ExtractFullName(ClaimsPrincipal principal, string email)

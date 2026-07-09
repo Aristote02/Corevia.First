@@ -13,3 +13,8 @@ export function isSupabaseAuthEnabled(): boolean {
 export function isCustomAuthEnabled(): boolean {
   return getAuthMode() === "custom" || getAuthMode() === "hybrid";
 }
+
+/** Email/password form: API auth (custom/hybrid) or Supabase email auth (supabase). */
+export function isEmailPasswordAuthEnabled(): boolean {
+  return isCustomAuthEnabled() || getAuthMode() === "supabase";
+}

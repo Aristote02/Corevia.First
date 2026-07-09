@@ -10,8 +10,14 @@ import {
 import * as api from "./api/client";
 import { clearTokens } from "./api/http";
 import type { UserProfile } from "./api/types";
-import { isCustomAuthEnabled, isSupabaseAuthEnabled } from "./auth-config";
-import { getSupabaseClient, signOutSupabase } from "./supabase";
+import { getAuthMode, isCustomAuthEnabled, isSupabaseAuthEnabled } from "./auth-config";
+import {
+  getSupabaseClient,
+  signInWithEmailSupabase,
+  signInWithGoogleRedirect,
+  signOutSupabase,
+  signUpWithEmailSupabase,
+} from "./supabase";
 
 interface AuthContextValue {
   profile: UserProfile | null;
@@ -61,6 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isSupabaseAuthEnabled()) {
         const client = await getSupabaseClient();
         if (!cancelled) setSupabaseReady(!!client);
+        // Let Supabase parse #access_token from OAuth redirect before the first sync.
+        if (client) await client.auth.getSession();
       }
       await refresh();
     }
@@ -83,7 +91,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(null);
           return;
         }
-        if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED")) {
+        if (
+          session &&
+          (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
+        ) {
           const synced = await api.syncSupabaseSession();
           if (synced) setProfile(synced);
         }
@@ -95,6 +106,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (getAuthMode() === "supabase") {
+      try {
+        await signInWithEmailSupabase(email, password);
+        const synced = await api.syncSupabaseSession();
+        if (synced) setProfile(synced);
+        return {
+          user: synced ? { id: synced.id, email: synced.email } : null,
+          profile: synced,
+          error: synced ? null : "Sign in failed",
+        };
+      } catch (err) {
+        return {
+          user: null,
+          profile: null,
+          error: err instanceof Error ? err.message : "Sign in failed",
+        };
+      }
+    }
+
     const res = await api.signIn(email, password);
     if (res.profile) setProfile(res.profile);
     return res;
@@ -102,6 +132,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (email: string, password: string, fullName: string) => {
+      if (getAuthMode() === "supabase") {
+        try {
+          const session = await signUpWithEmailSupabase(email, password, fullName);
+          if (!session) {
+            return {
+              user: null,
+              profile: null,
+              error: null,
+              needsEmailConfirmation: true,
+            };
+          }
+          const synced = await api.syncSupabaseSession();
+          if (synced) setProfile(synced);
+          return {
+            user: synced ? { id: synced.id, email: synced.email } : null,
+            profile: synced,
+            error: synced ? null : "Sign up failed",
+          };
+        } catch (err) {
+          return {
+            user: null,
+            profile: null,
+            error: err instanceof Error ? err.message : "Sign up failed",
+          };
+        }
+      }
+
       const res = await api.signUp(email, password, fullName);
       if (res.profile) setProfile(res.profile);
       return res;
@@ -110,14 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signInWithGoogle = useCallback(async () => {
-    const client = await getSupabaseClient();
-    if (!client) throw new Error("Supabase auth is not configured.");
-    const redirectTo = `${window.location.origin}/connexion`;
-    const { error } = await client.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo },
-    });
-    if (error) throw error;
+    await signInWithGoogleRedirect(`${window.location.origin}/connexion`);
   }, []);
 
   const signOut = useCallback(async () => {
