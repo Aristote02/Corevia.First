@@ -164,17 +164,8 @@ function AccountPage() {
   return (
     <>
       <PageHeader
-        eyebrow={fr ? "Espace personnel" : "Personal space"}
-        title={
-          formData.name
-            ? fr
-              ? `Compte de ${formData.name}`
-              : `${formData.name}'s account`
-            : fr
-              ? "Mon compte"
-              : "My account"
-        }
-        subtitle={profile?.email}
+        align="center"
+        title={formData.name || (fr ? "Mon compte" : "My account")}
       />
 
       <Section>
