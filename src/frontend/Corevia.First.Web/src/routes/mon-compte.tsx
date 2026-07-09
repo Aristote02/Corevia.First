@@ -91,6 +91,19 @@ function AccountPage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!profile) return;
+    const next = {
+      name: profile.full_name ?? "",
+      phone: profile.phone ?? "",
+      country: profile.country ?? "",
+      email: profile.email ?? "",
+    };
+    setFormData(next);
+    setInitialFormData(next);
+    setHasUnsavedChanges(false);
+  }, [profile]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const updated = { ...formData, [e.target.name]: e.target.value };
     setFormData(updated);
@@ -117,8 +130,18 @@ function AccountPage() {
         phone: formData.phone || null,
         country: formData.country || null,
       });
-      if (updated) setProfile(updated);
-      setInitialFormData(formData);
+      if (!updated) {
+        throw new Error("Update failed");
+      }
+      setProfile(updated);
+      const saved = {
+        name: updated.full_name,
+        phone: updated.phone ?? "",
+        country: updated.country ?? "",
+        email: updated.email,
+      };
+      setFormData(saved);
+      setInitialFormData(saved);
       setHasUnsavedChanges(false);
       setMessage(fr ? "Profil mis à jour avec succès." : "Profile updated successfully.");
       setTimeout(() => setMessage(""), 3000);

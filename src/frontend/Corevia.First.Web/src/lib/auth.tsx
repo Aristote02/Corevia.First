@@ -50,18 +50,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     setSyncError(null);
+
     if (isSupabaseAuthEnabled()) {
-      try {
-        const synced = await api.syncSupabaseSession();
-        if (synced) {
-          setProfile(synced);
+      const client = await getSupabaseClient();
+      const session = client ? (await client.auth.getSession()).data.session : null;
+
+      if (session?.access_token) {
+        try {
+          const synced = await api.syncSupabaseSession();
+          if (synced) {
+            setProfile(synced);
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          // Sync can fail on repeat logins; still try loading the saved profile.
+          setSyncError(err instanceof Error ? err.message : "Account sync failed.");
+        }
+
+        const profileFromApi = await api.getCurrentProfile();
+        if (profileFromApi) {
+          setProfile(profileFromApi);
           setLoading(false);
           return;
         }
-      } catch (err) {
-        setSyncError(err instanceof Error ? err.message : "Account sync failed.");
-        setLoading(false);
-        return;
       }
     }
 
@@ -108,10 +120,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             setSyncError(null);
             const synced = await api.syncSupabaseSession();
-            if (synced) setProfile(synced);
+            if (synced) {
+              setProfile(synced);
+              setLoading(false);
+              return;
+            }
           } catch (err) {
             setSyncError(err instanceof Error ? err.message : "Account sync failed.");
           }
+
+          const profileFromApi = await api.getCurrentProfile();
+          if (profileFromApi) {
+            setProfile(profileFromApi);
+          }
+          setLoading(false);
         }
       });
       unsubscribe = () => data.subscription.unsubscribe();

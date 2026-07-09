@@ -32,7 +32,7 @@ function GoogleLogo() {
   );
 }
 
-/** Google Identity branding: light neutral button with the multicolor G logo. */
+/** Google sign-in styled to match the Corevia dark/gold auth shell. */
 export function GoogleSignInButton({
   label,
   loading = false,
@@ -46,11 +46,11 @@ export function GoogleSignInButton({
       onClick={onClick}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex h-11 w-full items-center justify-center gap-3 rounded-md border border-[#747775] bg-white px-4 text-sm font-medium text-[#1f1f1f] shadow-sm transition-opacity hover:bg-[#f8f9fa] disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex w-full items-center justify-center gap-3 rounded-full border border-border bg-background/80 py-3.5 text-sm font-semibold text-foreground shadow-sm transition-all hover:scale-[1.02] hover:border-gold/50 hover:bg-card disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
     >
-      {loading ? <Loader2 className="size-[18px] animate-spin text-[#1f1f1f]" /> : <GoogleLogo />}
+      {loading ? <Loader2 className="size-[18px] animate-spin text-gold" /> : <GoogleLogo />}
       <span>{label}</span>
     </button>
   );

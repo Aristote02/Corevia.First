@@ -189,7 +189,11 @@ export interface AuthResult {
 }
 
 export async function getCurrentProfile(): Promise<UserProfile | null> {
-  if (!getAccessToken() && !getRefreshToken()) {
+  const hasCustomSession = getAccessToken() || getRefreshToken();
+  const hasSupabaseSession =
+    isSupabaseAuthEnabled() && (await getSupabaseAccessToken()) !== null;
+
+  if (!hasCustomSession && !hasSupabaseSession) {
     return null;
   }
 
@@ -314,15 +318,22 @@ export async function updatePassword(
 export async function updateProfile(
   patch: Partial<Pick<UserProfile, "full_name" | "phone" | "country">>,
 ): Promise<UserProfile | null> {
+  const hasCustomSession = getAccessToken() || getRefreshToken();
+  const hasSupabaseSession =
+    isSupabaseAuthEnabled() && (await getSupabaseAccessToken()) !== null;
+
+  if (!hasCustomSession && !hasSupabaseSession) {
+    throw new Error("Not authenticated.");
+  }
+
   const current = await getCurrentProfile();
-  if (!current) return null;
 
   const dto = await apiFetch<UserProfileDto>("/profile", {
     method: "PUT",
     body: {
-      full_name: patch.full_name ?? current.full_name,
-      phone: patch.phone ?? current.phone,
-      country: patch.country ?? current.country,
+      full_name: patch.full_name ?? current?.full_name ?? "",
+      phone: patch.phone !== undefined ? patch.phone : (current?.phone ?? null),
+      country: patch.country !== undefined ? patch.country : (current?.country ?? null),
     },
   });
   return mapProfile(dto);
