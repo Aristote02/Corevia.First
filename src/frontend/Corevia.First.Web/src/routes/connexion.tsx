@@ -4,7 +4,9 @@ import { Loader2, Info } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { isEmailPasswordAuthEnabled } from "@/lib/auth-config";
+import { needsProfileCompletion } from "@/lib/profile-utils";
 import { AuthShell, authInputCls } from "@/components/site/AuthShell";
+import { GoogleSignInButton } from "@/components/site/GoogleSignInButton";
 import { PasswordInput } from "@/components/site/PasswordInput";
 
 export const Route = createFileRoute("/connexion")({
@@ -19,7 +21,7 @@ export const Route = createFileRoute("/connexion")({
 function LoginPage() {
   const { lang } = useI18n();
   const fr = lang === "fr";
-  const { signIn, signInWithGoogle, supabaseReady, isAuthenticated, loading: authLoading } = useAuth();
+  const { signIn, signInWithGoogle, supabaseReady, syncError, isAuthenticated, loading: authLoading, profile } = useAuth();
   const navigate = useNavigate();
   const { redirect, message } = Route.useSearch();
 
@@ -30,10 +32,14 @@ function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
+    if (!authLoading && isAuthenticated && profile) {
+      if (needsProfileCompletion(profile)) {
+        navigate({ to: "/mon-compte", search: { complete: "1" } });
+        return;
+      }
       navigate({ to: redirect ?? "/" });
     }
-  }, [isAuthenticated, authLoading, navigate, redirect]);
+  }, [isAuthenticated, authLoading, navigate, redirect, profile]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,15 +92,17 @@ function LoginPage() {
         )}
         {showGoogle && (
           <>
-            <button
-              type="button"
+            <GoogleSignInButton
+              label={fr ? "Se connecter avec Google" : "Sign in with Google"}
+              loading={oauthLoading}
+              disabled={loading}
               onClick={onGoogleSignIn}
-              disabled={oauthLoading || loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-background py-3.5 text-sm font-semibold text-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-            >
-              {oauthLoading && <Loader2 className="size-4 animate-spin" />}
-              {fr ? "Continuer avec Google" : "Continue with Google"}
-            </button>
+            />
+            <p className="text-center text-xs text-muted-foreground">
+              {fr
+                ? "Nouveau ? Google crée votre compte automatiquement à la première connexion."
+                : "New here? Google creates your account automatically on first sign-in."}
+            </p>
             {showEmailForm && (
               <div className="relative py-2 text-center text-xs text-muted-foreground">
                 <span className="bg-card px-2">{fr ? "ou" : "or"}</span>
@@ -103,6 +111,7 @@ function LoginPage() {
             )}
           </>
         )}
+        {syncError && <p className="text-sm text-destructive">{syncError}</p>}
         {showEmailForm && (
           <>
         <input

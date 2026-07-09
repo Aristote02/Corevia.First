@@ -26,13 +26,14 @@ interface AuthContextValue {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   supabaseReady: boolean;
+  syncError: string | null;
   signIn: (email: string, password: string) => Promise<api.AuthResult>;
   signUp: (
     email: string,
     password: string,
     fullName: string,
   ) => Promise<api.AuthResult>;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (returnPath?: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
   setProfile: (p: UserProfile | null) => void;
@@ -45,11 +46,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [supabaseReady, setSupabaseReady] = useState(false);
 
+  const [syncError, setSyncError] = useState<string | null>(null);
+
   const refresh = useCallback(async () => {
+    setSyncError(null);
     if (isSupabaseAuthEnabled()) {
-      const synced = await api.syncSupabaseSession();
-      if (synced) {
-        setProfile(synced);
+      try {
+        const synced = await api.syncSupabaseSession();
+        if (synced) {
+          setProfile(synced);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        setSyncError(err instanceof Error ? err.message : "Account sync failed.");
         setLoading(false);
         return;
       }
@@ -95,8 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           session &&
           (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
         ) {
-          const synced = await api.syncSupabaseSession();
-          if (synced) setProfile(synced);
+          try {
+            setSyncError(null);
+            const synced = await api.syncSupabaseSession();
+            if (synced) setProfile(synced);
+          } catch (err) {
+            setSyncError(err instanceof Error ? err.message : "Account sync failed.");
+          }
         }
       });
       unsubscribe = () => data.subscription.unsubscribe();
@@ -166,8 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const signInWithGoogle = useCallback(async () => {
-    await signInWithGoogleRedirect(`${window.location.origin}/connexion`);
+  const signInWithGoogle = useCallback(async (returnPath?: string) => {
+    const path = returnPath ?? "/connexion";
+    const redirectTo = path.startsWith("http")
+      ? path
+      : `${window.location.origin}${path.startsWith("/") ? path : `/${path}`}`;
+    await signInWithGoogleRedirect(redirectTo);
   }, []);
 
   const signOut = useCallback(async () => {
@@ -193,6 +212,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: profile?.role === "admin",
       isSuperAdmin: profile?.is_super_admin === true,
       supabaseReady,
+      syncError,
       signIn,
       signUp,
       signInWithGoogle,
@@ -200,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       setProfile,
     }),
-    [profile, loading, supabaseReady, signIn, signUp, signInWithGoogle, signOut, refresh],
+    [profile, loading, supabaseReady, syncError, signIn, signUp, signInWithGoogle, signOut, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

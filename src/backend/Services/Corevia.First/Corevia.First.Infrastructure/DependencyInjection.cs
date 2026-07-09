@@ -36,6 +36,8 @@ public static class DependencyInjection
         services.AddSingleton<IMustacheTemplateRenderer, EmbeddedMustacheTemplateRenderer>();
         services.AddScoped<IEmailSender, SendGridEmailSender>();
 
+        services.AddHttpClient(nameof(SupabaseAuthService));
+
         services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
 
         return services;

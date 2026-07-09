@@ -23,6 +23,9 @@ import { listMyApplications, updateProfile } from "@/lib/api/client";
 import type { Application } from "@/lib/api/types";
 
 export const Route = createFileRoute("/mon-compte")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    complete: s.complete === "1" || s.complete === 1 ? "1" : undefined,
+  }),
   head: () => ({ meta: [{ title: "Mon compte — COREVIA FIRST" }] }),
   component: () => (
     <ProtectedRoute>
@@ -37,6 +40,7 @@ const STATUS_ORDER: CoarseStatus[] = ["nouveau", "en_cours", "cloture"];
 function AccountPage() {
   const { lang } = useI18n();
   const fr = lang === "fr";
+  const { complete } = Route.useSearch();
   const { profile, setProfile, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
 
@@ -152,6 +156,16 @@ function AccountPage() {
 
       <Section>
         <div className="mx-auto max-w-4xl space-y-8">
+          {complete === "1" && (
+            <div className="flex items-start gap-3 rounded-2xl border border-gold/40 bg-gold/10 p-4 text-sm text-foreground">
+              <User className="mt-0.5 size-5 shrink-0 text-gold" />
+              <p>
+                {fr
+                  ? "Bienvenue ! Complétez votre nom et vos coordonnées pour finaliser votre profil."
+                  : "Welcome! Complete your name and contact details to finish your profile."}
+              </p>
+            </div>
+          )}
           {isAdmin && (
             <div className="flex items-center justify-between gap-4 rounded-2xl border border-gold/30 bg-card p-6">
               <div>

@@ -13,7 +13,7 @@ import {
   resetPasswordWithSupabase,
   updatePasswordWithSupabase,
 } from "../supabase";
-import { apiFetch, clearTokens, getAccessToken, getRefreshToken, setTokens } from "./http";
+import { apiFetch, ApiError, clearTokens, getAccessToken, getRefreshToken, setTokens } from "./http";
 
 interface AuthResponse {
   access_token: string;
@@ -264,7 +264,12 @@ export async function syncSupabaseSession(): Promise<UserProfile | null> {
       body: { access_token: accessToken },
     });
     return mapProfile(data.profile);
-  } catch {
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) {
+      throw new Error(
+        "Your Google session could not be linked to your account. Please try again or use email sign-in.",
+      );
+    }
     return null;
   }
 }

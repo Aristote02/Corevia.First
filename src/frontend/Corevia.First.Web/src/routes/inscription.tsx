@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { isEmailPasswordAuthEnabled } from "@/lib/auth-config";
 import { AuthShell, authInputCls } from "@/components/site/AuthShell";
+import { GoogleSignInButton } from "@/components/site/GoogleSignInButton";
 import { PasswordInput } from "@/components/site/PasswordInput";
 
 export const Route = createFileRoute("/inscription")({
@@ -79,7 +80,7 @@ function SignupPage() {
     setOauthLoading(true);
     setError("");
     try {
-      await signInWithGoogle();
+      await signInWithGoogle("/connexion");
     } catch (err) {
       setOauthLoading(false);
       setError(err instanceof Error ? err.message : fr ? "Inscription Google échouée." : "Google sign-up failed.");
@@ -140,15 +141,17 @@ function SignupPage() {
           )}
           {showGoogle && (
             <>
-              <button
-                type="button"
+              <GoogleSignInButton
+                label={fr ? "S'inscrire avec Google" : "Sign up with Google"}
+                loading={oauthLoading}
+                disabled={loading}
                 onClick={onGoogleSignUp}
-                disabled={oauthLoading || loading}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-border bg-background py-3.5 text-sm font-semibold text-foreground transition-transform hover:scale-[1.02] disabled:opacity-60"
-              >
-                {oauthLoading && <Loader2 className="size-4 animate-spin" />}
-                {fr ? "Continuer avec Google" : "Continue with Google"}
-              </button>
+              />
+              <p className="text-center text-xs text-muted-foreground">
+                {fr
+                  ? "Votre e-mail et nom Google seront utilisés pour créer votre compte. Aucun mot de passe à définir."
+                  : "Your Google email and name will be used to create your account. No password needed."}
+              </p>
               {showEmailForm && (
                 <div className="relative py-2 text-center text-xs text-muted-foreground">
                   <span className="bg-card px-2">{fr ? "ou" : "or"}</span>

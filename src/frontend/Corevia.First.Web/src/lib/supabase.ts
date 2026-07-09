@@ -87,7 +87,11 @@ export async function signInWithGoogleRedirect(redirectTo?: string) {
   const redirectUrl = redirectTo ?? `${window.location.origin}/connexion`;
   const { error } = await supabase.auth.signInWithOAuth({
     provider: "google",
-    options: { redirectTo: redirectUrl },
+    options: {
+      redirectTo: redirectUrl,
+      queryParams: { access_type: "offline", prompt: "consent" },
+      scopes: "email profile",
+    },
   });
   if (error) throw error;
 }
