@@ -1,6 +1,6 @@
 # Corevia First
 
-Travel agency platform — **Clean Architecture + Vertical Slice + .NET Aspire**, mirroring the Dream Team Ever architecture.
+Travel agency platform built with **Clean Architecture**, **Vertical Slice** API design, and **.NET Aspire** for local orchestration.
 
 The React frontend (Vite SPA + TanStack Router) calls this backend via REST. JSON responses use **snake_case** to match the frontend types.
 
