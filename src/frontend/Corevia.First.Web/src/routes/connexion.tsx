@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Loader2, Info } from "lucide-react";
+import { Loader2, Info, AlertCircle } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/lib/auth";
 import { isEmailPasswordAuthEnabled } from "@/lib/auth-config";
@@ -65,6 +65,15 @@ function LoginPage() {
     }
   };
 
+  const formatAuthError = (message: string) => {
+    if (!fr) return message;
+    if (message.toLowerCase().includes("invalid login credentials")) {
+      return "Identifiants incorrects. Vérifiez votre e-mail et votre mot de passe.";
+    }
+    return message;
+  };
+
+  const authError = error ?? syncError;
   const showEmailForm = isEmailPasswordAuthEnabled();
   const showGoogle = supabaseReady;
 
@@ -111,7 +120,12 @@ function LoginPage() {
             )}
           </>
         )}
-        {syncError && <p className="text-sm text-destructive">{syncError}</p>}
+        {authError && (
+          <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            <AlertCircle className="mt-0.5 size-5 shrink-0" />
+            <p>{formatAuthError(authError)}</p>
+          </div>
+        )}
         {showEmailForm && (
           <>
         <input
@@ -138,7 +152,6 @@ function LoginPage() {
             {fr ? "Mot de passe oublié ?" : "Forgot password?"}
           </Link>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
         <button
           type="submit"
           disabled={loading}

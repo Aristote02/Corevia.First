@@ -172,7 +172,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    if (getAuthMode() === "supabase") {
+    // Seeded/admin accounts live in Postgres and authenticate via the API.
+    const customRes = await api.signIn(email, password);
+    if (customRes.profile) {
+      setProfile(customRes.profile);
+      return customRes;
+    }
+
+    if (getAuthMode() === "supabase" || getAuthMode() === "hybrid") {
       try {
         await signInWithEmailSupabase(email, password);
         const synced = await api.syncSupabaseSession();
@@ -186,14 +193,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return {
           user: null,
           profile: null,
-          error: err instanceof Error ? err.message : "Sign in failed",
+          error: err instanceof Error ? err.message : customRes.error ?? "Sign in failed",
         };
       }
     }
 
-    const res = await api.signIn(email, password);
-    if (res.profile) setProfile(res.profile);
-    return res;
+    return customRes;
   }, []);
 
   const signUp = useCallback(
