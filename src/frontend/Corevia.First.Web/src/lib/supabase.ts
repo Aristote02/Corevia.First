@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { getApiBaseUrl } from "./config";
 import { isSupabaseAuthEnabled } from "./auth-config";
 
@@ -37,13 +37,32 @@ export async function getSupabaseClient(): Promise<SupabaseClient | null> {
   initPromise = (async () => {
     const creds = await resolveSupabaseCredentials();
     if (!creds) return null;
-    client = createClient(creds.url, creds.anonKey, {
+
+    const supabase = createClient(creds.url, creds.anonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
     });
+
+    await Promise.race([
+      new Promise<void>((resolve) => {
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((event) => {
+          if (event === "INITIAL_SESSION") {
+            subscription.unsubscribe();
+            resolve();
+          }
+        });
+      }),
+      new Promise<void>((resolve) => {
+        setTimeout(resolve, 3000);
+      }),
+    ]);
+
+    client = supabase;
     return client;
   })();
 
@@ -55,6 +74,40 @@ export async function getSupabaseAccessToken(): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
   return data.session?.access_token ?? null;
+}
+
+/** Wait until Supabase has restored any persisted session (avoids refresh logout race). */
+export async function waitForSupabaseSession(
+  supabase: SupabaseClient,
+  timeoutMs = 8000,
+): Promise<Session | null> {
+  const { data: initial } = await supabase.auth.getSession();
+  if (initial.session) return initial.session;
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (session: Session | null) => {
+      if (settled) return;
+      settled = true;
+      subscription.unsubscribe();
+      clearTimeout(timer);
+      resolve(session);
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        finish(session);
+      }
+    });
+
+    const timer = setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      finish(data.session);
+    }, timeoutMs);
+  });
 }
 
 export async function signInWithEmailSupabase(email: string, password: string) {

@@ -17,6 +17,7 @@ import {
   signInWithGoogleRedirect,
   signOutSupabase,
   signUpWithEmailSupabase,
+  waitForSupabaseSession,
 } from "./supabase";
 
 interface AuthContextValue {
@@ -41,11 +42,20 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+async function loadProfileFromSupabaseSession(): Promise<UserProfile | null> {
+  try {
+    const synced = await api.syncSupabaseSession();
+    if (synced) return synced;
+  } catch {
+    // Fall back to the saved local profile when sync is unnecessary or fails.
+  }
+  return api.getCurrentProfile();
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [supabaseReady, setSupabaseReady] = useState(false);
-
   const [syncError, setSyncError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -53,27 +63,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (isSupabaseAuthEnabled()) {
       const client = await getSupabaseClient();
-      const session = client ? (await client.auth.getSession()).data.session : null;
+      if (!client) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
 
-      if (session?.access_token) {
+      const session = await waitForSupabaseSession(client);
+      if (session) {
         try {
-          const synced = await api.syncSupabaseSession();
-          if (synced) {
-            setProfile(synced);
-            setLoading(false);
-            return;
+          const nextProfile = await loadProfileFromSupabaseSession();
+          setProfile(nextProfile);
+          if (!nextProfile) {
+            setSyncError("Unable to restore your account session.");
           }
         } catch (err) {
-          // Sync can fail on repeat logins; still try loading the saved profile.
           setSyncError(err instanceof Error ? err.message : "Account sync failed.");
+          setProfile(null);
         }
-
-        const profileFromApi = await api.getCurrentProfile();
-        if (profileFromApi) {
-          setProfile(profileFromApi);
-          setLoading(false);
-          return;
-        }
+        setLoading(false);
+        return;
       }
     }
 
@@ -88,18 +97,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function bootstrap() {
       if (isSupabaseAuthEnabled()) {
         const client = await getSupabaseClient();
-        if (!cancelled) setSupabaseReady(!!client);
-        // Let Supabase parse #access_token from OAuth redirect before the first sync.
-        if (client) await client.auth.getSession();
+        if (cancelled) return;
+        setSupabaseReady(!!client);
+
+        if (client) {
+          const session = await waitForSupabaseSession(client);
+          if (cancelled) return;
+
+          if (session) {
+            try {
+              const nextProfile = await loadProfileFromSupabaseSession();
+              if (!cancelled) {
+                setProfile(nextProfile);
+                if (!nextProfile) {
+                  setSyncError("Unable to restore your account session.");
+                }
+              }
+            } catch (err) {
+              if (!cancelled) {
+                setSyncError(err instanceof Error ? err.message : "Account sync failed.");
+              }
+            }
+            if (!cancelled) setLoading(false);
+            return;
+          }
+        }
       }
-      await refresh();
+
+      if (!cancelled) {
+        const p = await api.getCurrentProfile();
+        setProfile(p);
+        setLoading(false);
+      }
     }
 
     bootstrap();
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseAuthEnabled()) return;
@@ -111,29 +147,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = client.auth.onAuthStateChange(async (event, session) => {
         if (event === "SIGNED_OUT") {
           setProfile(null);
+          setLoading(false);
           return;
         }
-        if (
-          session &&
-          (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "TOKEN_REFRESHED")
-        ) {
+
+        if (!session) return;
+
+        if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
           try {
             setSyncError(null);
-            const synced = await api.syncSupabaseSession();
-            if (synced) {
-              setProfile(synced);
-              setLoading(false);
-              return;
-            }
+            const nextProfile = await loadProfileFromSupabaseSession();
+            setProfile(nextProfile);
           } catch (err) {
             setSyncError(err instanceof Error ? err.message : "Account sync failed.");
+          } finally {
+            setLoading(false);
           }
-
-          const profileFromApi = await api.getCurrentProfile();
-          if (profileFromApi) {
-            setProfile(profileFromApi);
-          }
-          setLoading(false);
         }
       });
       unsubscribe = () => data.subscription.unsubscribe();

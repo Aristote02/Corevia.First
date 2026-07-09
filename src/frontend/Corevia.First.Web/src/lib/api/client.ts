@@ -270,9 +270,7 @@ export async function syncSupabaseSession(): Promise<UserProfile | null> {
     return mapProfile(data.profile);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) {
-      throw new Error(
-        "Your Google session could not be linked to your account. Please try again or use email sign-in.",
-      );
+      return null;
     }
     return null;
   }
