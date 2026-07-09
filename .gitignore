@@ -11,6 +11,10 @@
 *.sln.docstates
 *.env
 
+# Private deployment runbooks (local only — not for GitHub)
+DEPLOYMENT.local.md
+docs/deployment-private.md
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

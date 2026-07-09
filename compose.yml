@@ -1,0 +1,76 @@
+services:
+  corevia-first.api:
+    image: ${DOCKER_REGISTRY-}coreviafirstapi
+    build:
+      context: .
+      dockerfile: src/backend/Services/Corevia.First/Corevia.First.Api/Dockerfile
+    ports:
+      - "5270:8080"
+    networks:
+      - corevia-first-network
+    env_file:
+      - .env
+    environment:
+      - ConnectionStrings__CoreviaFirstDbConnectionString=Host=postgres;Port=5432;Database=CoreviaFirst;Username=postgres;Password=postgres
+      - ConnectionStrings__RedisConnectionString=redis:6379,abortConnect=false
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=CoreviaFirst
+    ports:
+      - "5433:5432"
+    restart: always
+    networks:
+      - corevia-first-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    restart: always
+    networks:
+      - corevia-first-network
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 80mb
+      --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 100M
+        reservations:
+          cpus: '0.10'
+          memory: 64M
+
+  frontend:
+    profiles:
+      - frontend
+    build:
+      context: ./src/frontend/Corevia.First.Web
+      dockerfile: Dockerfile
+    ports:
+      - "4003:80"
+    networks:
+      - corevia-first-network
+    depends_on:
+      - corevia-first.api
+
+networks:
+  corevia-first-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

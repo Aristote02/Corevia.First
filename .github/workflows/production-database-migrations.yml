@@ -1,0 +1,49 @@
+name: Production database migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "yes" to run EF migrations against PRODUCTION_DATABASE_URL (Supabase Session pooler, port 5432).'
+        required: true
+        default: 'no'
+
+concurrency:
+  group: production-database-migrations
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Run EF migrations
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'yes' }}
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      ConnectionStrings__CoreviaFirstDbConnectionString: ${{ secrets.PRODUCTION_DATABASE_URL }}
+      ASPNETCORE_ENVIRONMENT: Production
+
+    steps:
+      - name: Check PRODUCTION_DATABASE_URL is set
+        run: |
+          if [ -z "$ConnectionStrings__CoreviaFirstDbConnectionString" ]; then
+            echo "::error::Secret PRODUCTION_DATABASE_URL is empty."
+            exit 1
+          fi
+          if echo "$ConnectionStrings__CoreviaFirstDbConnectionString" | grep -qE 'db\.[a-z0-9]+\.supabase\.co'; then
+            echo "::warning::Secret uses direct host db.*.supabase.co — use Session pooler (aws-*.pooler.supabase.com) like pgAdmin instead."
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Run MigrationService
+        run: |
+          set -euo pipefail
+          dotnet run \
+            --no-launch-profile \
+            --project "src/backend/Services/Migrators/Corevia.First.MigrationService/Corevia.First.MigrationService.csproj" \
+            -c Release

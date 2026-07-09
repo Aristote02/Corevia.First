@@ -1,0 +1,72 @@
+# Render Blueprint — Corevia.First production
+# Architecture: Render (API + Redis) · Supabase (Postgres + Auth) · Vercel (frontend)
+#
+# Import: Dashboard → New → Blueprint → connect repo → select this file.
+# Or configure the web service manually using the same paths and env vars (see README).
+
+previews:
+  generation: manual
+
+services:
+  - type: redis
+    name: corevia-first-redis
+    region: frankfurt
+    plan: starter
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  - type: web
+    name: corevia-first-api
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    dockerfilePath: ./src/backend/Services/Corevia.First/Corevia.First.Api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - src/backend/**
+        - Directory.Packages.props
+        - Corevia.First.sln
+        - render.yaml
+      ignoredPaths:
+        - src/frontend/**
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: AdminSeed__Enabled
+        value: "false"
+      - key: ConnectionStrings__CoreviaFirstDbConnectionString
+        sync: false
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__Issuer
+        value: CoreviaFirst
+      - key: Jwt__Audience
+        value: CoreviaFirst
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: corevia-first-redis
+          property: connectionString
+      - key: Supabase__Enabled
+        value: "true"
+      - key: Supabase__ProjectUrl
+        sync: false
+      - key: Supabase__AnonKey
+        sync: false
+      - key: Supabase__JwtAudience
+        value: authenticated
+      - key: Cors__Origins__0
+        sync: false
+      - key: Email__Enabled
+        value: "false"
+      - key: Email__FrontendBaseUrl
+        sync: false
+      - key: Email__SendGridApiKey
+        sync: false
+      - key: Email__SenderEmail
+        sync: false
+      - key: Email__SenderName
+        value: COREVIA FIRST
